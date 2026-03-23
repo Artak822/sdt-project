@@ -41,18 +41,29 @@
 
 ```mermaid
 graph TD
-    User(["👤 Пользователь"])
-    TG["Telegram API"]
-    Bot["Bot Service\n(aiogram)"]
-    Profile["Profile Service\n(FastAPI)"]
-    Rating["Rating Service\n(FastAPI)"]
-    Match["Match Service\n(FastAPI)"]
-    Media["Media Service\n(FastAPI)"]
-    PG[("PostgreSQL")]
-    Redis[("Redis\nкэш × 10")]
-    MQ[["RabbitMQ"]]
-    Celery["Celery + Beat\nпересчёт каждые 15м"]
-    Minio[("MinIO\nS3 фото")]
+    subgraph Вход
+        User(["👤 Пользователь"])
+        TG["Telegram API"]
+    end
+
+    subgraph Сервисы
+        Bot["🤖 Bot Service\naiogram"]
+        Profile["👤 Profile Service\nFastAPI"]
+        Rating["⭐ Rating Service\nFastAPI"]
+        Match["💜 Match Service\nFastAPI"]
+        Media["📸 Media Service\nFastAPI"]
+    end
+
+    subgraph Хранилища
+        PG[("PostgreSQL")]
+        Redis[("Redis\nкэш × 10")]
+        Minio[("MinIO\nфото")]
+    end
+
+    subgraph "Асинхронные события"
+        MQ[["RabbitMQ"]]
+        Celery["Celery + Beat\n⏱ каждые 15м"]
+    end
 
     User --> TG --> Bot
 
@@ -65,14 +76,14 @@ graph TD
     Rating --> PG
     Match --> PG
     Rating --> Redis
-
     Media --> Minio
 
-    Profile -.->|profile.created| MQ
-    Match -.->|match.created| MQ
-    Bot -.->|слушает события| MQ
-
-    Celery -.->|rating.recalc| MQ
+    Profile -.->|"profile.created"| MQ
+    Match -.->|"match.created"| MQ
+    MQ -.->|"match.created"| Bot
+    MQ -.->|"profile.created"| Rating
+    Celery -.->|"rating.recalc"| MQ
+    MQ -.->|"rating.recalc"| Rating
     Celery --> PG
 ```
 
