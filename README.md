@@ -41,7 +41,8 @@
 
 ```mermaid
 flowchart TD
-    User(["👤 Пользователь"]) --> TG["Telegram API"] --> Bot["🤖 Bot Service\naiogram"]
+    User(["👤 Пользователь"]) --> TG["Telegram API"] --> Bot["🤖 Bot Service
+    aiogram"]
 
     Bot -->|HTTP| Profile["👤 Profile Service"]
     Bot -->|HTTP| Rating["⭐ Rating Service"]
@@ -56,7 +57,8 @@ flowchart TD
 
     Profile -.->|profile.created| MQ[["RabbitMQ"]]
     Match -.->|match.created| MQ
-    Celery["⏱ Celery Beat\nкаждые 15м"] -.->|rating.recalc| MQ
+    Celery["⏱ Celery Beat
+    каждые 15м"] -.->|rating.recalc| MQ
     Celery -.-> PG
 
     MQ -.->|match.created| Bot
