@@ -40,51 +40,28 @@
 ## Схема архитектуры
 
 ```mermaid
-graph TD
-    subgraph Вход
-        User(["👤 Пользователь"])
-        TG["Telegram API"]
-    end
+flowchart TD
+    User(["👤 Пользователь"]) --> TG["Telegram API"] --> Bot["🤖 Bot Service\naiogram"]
 
-    subgraph Сервисы
-        Bot["🤖 Bot Service\naiogram"]
-        Profile["👤 Profile Service\nFastAPI"]
-        Rating["⭐ Rating Service\nFastAPI"]
-        Match["💜 Match Service\nFastAPI"]
-        Media["📸 Media Service\nFastAPI"]
-    end
+    Bot -->|HTTP| Profile["👤 Profile Service"]
+    Bot -->|HTTP| Rating["⭐ Rating Service"]
+    Bot -->|HTTP| Match["💜 Match Service"]
+    Bot -->|HTTP| Media["📸 Media Service"]
 
-    subgraph Хранилища
-        PG[("PostgreSQL")]
-        Redis[("Redis\nкэш × 10")]
-        Minio[("MinIO\nфото")]
-    end
-
-    subgraph "Асинхронные события"
-        MQ[["RabbitMQ"]]
-        Celery["Celery + Beat\n⏱ каждые 15м"]
-    end
-
-    User --> TG --> Bot
-
-    Bot -->|HTTP| Profile
-    Bot -->|HTTP| Rating
-    Bot -->|HTTP| Match
-    Bot -->|HTTP| Media
-
-    Profile --> PG
+    Profile --> PG[("PostgreSQL")]
     Rating --> PG
     Match --> PG
-    Rating --> Redis
-    Media --> Minio
+    Rating --> Redis[("Redis кэш × 10")]
+    Media --> Minio[("MinIO фото")]
 
-    Profile -.->|"profile.created"| MQ
-    Match -.->|"match.created"| MQ
-    MQ -.->|"match.created"| Bot
-    MQ -.->|"profile.created"| Rating
-    Celery -.->|"rating.recalc"| MQ
-    MQ -.->|"rating.recalc"| Rating
-    Celery --> PG
+    Profile -.->|profile.created| MQ[["RabbitMQ"]]
+    Match -.->|match.created| MQ
+    Celery["⏱ Celery Beat\nкаждые 15м"] -.->|rating.recalc| MQ
+    Celery -.-> PG
+
+    MQ -.->|match.created| Bot
+    MQ -.->|profile.created| Rating
+    MQ -.->|rating.recalc| Rating
 ```
 
 ---
