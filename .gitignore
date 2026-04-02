@@ -1,2 +1,7 @@
 ./Практика-Дэйтинг-Бот.docx
 ./PROJECT_CONTEXT.md
+.env
+**/.env
+__pycache__/
+**/__pycache__/
+*.pyc
