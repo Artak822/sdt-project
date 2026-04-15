@@ -5,18 +5,6 @@ from app.models import Customer, Product, Order, OrderItem
 
 
 def place_order(session: Session, customer_id: int, items: list[dict]) -> Order:
-    """
-    Сценарий 1: Размещение заказа.
-
-    items — список словарей вида:
-        {"product_id": int, "quantity": int, "price": Decimal}
-
-    Транзакция:
-    1. INSERT в Orders (TotalAmount = 0 временно)
-    2. INSERT позиций в OrderItems с Quantity и Subtotal
-    3. UPDATE TotalAmount = сумма всех Subtotal
-    При любой ошибке — ROLLBACK, заказ не создаётся.
-    """
     try:
         order = Order(
             customer_id=customer_id,
@@ -47,14 +35,6 @@ def place_order(session: Session, customer_id: int, items: list[dict]) -> Order:
 
 
 def update_customer_email(session: Session, customer_id: int, new_email: str) -> Customer:
-    """
-    Сценарий 2: Атомарное обновление email клиента.
-
-    Транзакция:
-    1. SELECT клиента по ID
-    2. UPDATE Email
-    При любой ошибке — ROLLBACK, email остаётся прежним.
-    """
     try:
         customer = session.get(Customer, customer_id)
         if customer is None:
@@ -69,13 +49,6 @@ def update_customer_email(session: Session, customer_id: int, new_email: str) ->
 
 
 def add_product(session: Session, product_name: str, price: Decimal) -> Product:
-    """
-    Сценарий 3: Атомарное добавление нового продукта.
-
-    Транзакция:
-    1. INSERT в Products
-    При любой ошибке — ROLLBACK, БД остаётся в консистентном состоянии.
-    """
     try:
         product = Product(product_name=product_name, price=Decimal(str(price)))
         session.add(product)
