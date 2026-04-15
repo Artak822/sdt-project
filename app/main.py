@@ -5,7 +5,6 @@ from app.transactions import place_order, update_customer_email, add_product
 
 
 def seed(session):
-    """Добавляем тестовые данные если их ещё нет."""
     if session.query(Customer).count() == 0:
         customer = Customer(first_name="Иван", last_name="Иванов", email="ivan@example.com")
         session.add(customer)
@@ -18,7 +17,6 @@ def seed(session):
 
 
 def main():
-    # Создаём таблицы
     Base.metadata.create_all(engine)
     print("Таблицы созданы.\n")
 
@@ -28,7 +26,6 @@ def main():
         customer = session.query(Customer).first()
         products = session.query(Product).all()
 
-        # ── Сценарий 1: Размещение заказа ────────────────────────────────
         items = [
             {"product_id": products[0].id, "quantity": 1, "price": products[0].price},
             {"product_id": products[1].id, "quantity": 1, "price": products[1].price},
@@ -37,13 +34,11 @@ def main():
         print(f"[Сценарий 1] Заказ #{order.id} создан.")
         print(f"             CustomerID={order.customer_id}, TotalAmount={order.total_amount}\n")
 
-        # ── Сценарий 2: Обновление email клиента ─────────────────────────
         old_email = customer.email
         updated = update_customer_email(session, customer_id=customer.id, new_email="new@example.com")
         print(f"[Сценарий 2] Email клиента #{updated.id} обновлён.")
         print(f"             {old_email!r} → {updated.email!r}\n")
 
-        # ── Сценарий 3: Добавление нового продукта ────────────────────────
         new_product = add_product(session, product_name="Ноутбук", price=Decimal("50000.00"))
         print(f"[Сценарий 3] Продукт добавлен.")
         print(f"             ProductID={new_product.id}, Name={new_product.product_name!r}, Price={new_product.price}\n")
