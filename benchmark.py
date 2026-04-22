@@ -234,10 +234,6 @@ def bench_redis(size: int, rate: int, dur: int) -> Result:
     err_box   = [0]
     lats_shared: List[float] = []
 
-    # Ограничиваем стрим ~300 MB чтобы не упасть в OOM
-    stream_maxlen = max(500, (300 * 1024 * 1024) // max(size, 1))
-    stream_maxlen = min(stream_maxlen, 50_000)
-
     _red_reset()
 
     # ── producer ──
@@ -245,8 +241,7 @@ def bench_redis(size: int, rate: int, dur: int) -> Result:
         rc = _red_conn()
 
         def _send():
-            rc.xadd(STREAM_KEY, {"ts": str(time.time()), "p": payload},
-                    maxlen=stream_maxlen, approximate=True)
+            rc.xadd(STREAM_KEY, {"ts": str(time.time()), "p": payload})
 
         _producer_loop(_send, rate, dur, sent_box, err_box, prod_done)
         rc.close()

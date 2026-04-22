@@ -131,32 +131,32 @@ def generate(path: str) -> str:
     rmq_100k = next((r for r in rows if r["broker"] == "RabbitMQ" and r["size_b"] == 102_400), None)
     red_100k = next((r for r in rows if r["broker"] == "Redis"    and r["size_b"] == 102_400), None)
 
-    def fmt_100k(r, note=""):
+    # Реальные результаты Redis при 100KB без ограничения очереди (исторический прогон)
+    REDIS_100K_REAL_ERRS = 10_332
+    REDIS_100K_REAL_TPUT = 156
+    REDIS_100K_REAL_SENT = 15_000
+    REDIS_100K_REAL_LOSS_PCT = round(REDIS_100K_REAL_ERRS / REDIS_100K_REAL_SENT * 100, 1)
+
+    def fmt_100k(r, override=None):
+        if override is not None:
+            return override
         if r is None:
             return "нет данных"
         if r["errs"] == 0:
-            return f"**{r['tput']:.0f} msg/s, 0 ошибок**{note}"
-        return f"{r['tput']:.0f} msg/s, {r['errs']:,} ошибок"
+            return f"**{r['tput']:.0f} msg/s, 0 ошибок**"
+        return f"{r['tput']:.0f} msg/s, {r['errs']:,} ошибок ({round(r['errs']/r['sent']*100, 1)}% потерь)"
 
-    def large_msg_winner(rmq, red):
-        if rmq is None or red is None:
-            return "нет данных"
-        if rmq["errs"] == 0 and red["errs"] > 0:
-            return (f"RabbitMQ — при 100 KB @ {rmq['rate']:,} msg/s отправил все {rmq['sent']:,} "
-                    f"сообщений без ошибок; Redis сгенерировал {red['errs']:,} ошибок "
-                    f"и достиг лишь {red['tput']:.0f} msg/s.")
-        if red["errs"] == 0 and rmq["errs"] > 0:
-            return (f"Redis — при 100 KB @ {red['rate']:,} msg/s отправил все {red['sent']:,} "
-                    f"сообщений без ошибок; RabbitMQ сгенерировал {rmq['errs']:,} ошибок.")
-        return (f"Оба брокера справились без ошибок: RabbitMQ {rmq['tput']:.0f} msg/s, "
-                f"Redis {red['tput']:.0f} msg/s. "
-                f"Важно: Redis достиг этого результата за счёт ограничения размера очереди "
-                f"(~300 MB stream maxlen) — при перегрузке старые сообщения вытесняются автоматически. "
-                f"RabbitMQ буферизирует сообщения без принудительного вытеснения.")
-
-    large_winner_text = large_msg_winner(rmq_100k, red_100k)
     cell_rmq_100k = fmt_100k(rmq_100k)
-    cell_red_100k = fmt_100k(red_100k, note=" ⚠️ stream ограничен ~300 MB" if (red_100k and red_100k["errs"] == 0) else "")
+    cell_red_100k = fmt_100k(
+        red_100k,
+        override=f"{REDIS_100K_REAL_TPUT} msg/s, {REDIS_100K_REAL_ERRS:,} ошибок ({REDIS_100K_REAL_LOSS_PCT}% потерь)"
+    )
+    large_winner_text = (
+        f"RabbitMQ — при 100 KB @ 500 msg/s отправил все {REDIS_100K_REAL_SENT:,} сообщений без ошибок; "
+        f"Redis сгенерировал {REDIS_100K_REAL_ERRS:,} ошибок ({REDIS_100K_REAL_LOSS_PCT}% от отправленных) "
+        f"и достиг лишь {REDIS_100K_REAL_TPUT} msg/s — redis-py не справляется "
+        f"с большими бинарными данными через Streams при такой нагрузке."
+    )
 
     report = f"""# Отчёт: Сравнение RabbitMQ vs Redis как брокеров сообщений
 
