@@ -127,6 +127,37 @@ def generate(path: str) -> str:
     rmq_ceiling = rmq_rate[-1]["tput"] if rmq_rate else 0
     red_ceiling = red_rate[-1]["tput"] if red_rate else 0
 
+    # 100 KB row stats (dynamic)
+    rmq_100k = next((r for r in rows if r["broker"] == "RabbitMQ" and r["size_b"] == 102_400), None)
+    red_100k = next((r for r in rows if r["broker"] == "Redis"    and r["size_b"] == 102_400), None)
+
+    def fmt_100k(r, note=""):
+        if r is None:
+            return "нет данных"
+        if r["errs"] == 0:
+            return f"**{r['tput']:.0f} msg/s, 0 ошибок**{note}"
+        return f"{r['tput']:.0f} msg/s, {r['errs']:,} ошибок"
+
+    def large_msg_winner(rmq, red):
+        if rmq is None or red is None:
+            return "нет данных"
+        if rmq["errs"] == 0 and red["errs"] > 0:
+            return (f"RabbitMQ — при 100 KB @ {rmq['rate']:,} msg/s отправил все {rmq['sent']:,} "
+                    f"сообщений без ошибок; Redis сгенерировал {red['errs']:,} ошибок "
+                    f"и достиг лишь {red['tput']:.0f} msg/s.")
+        if red["errs"] == 0 and rmq["errs"] > 0:
+            return (f"Redis — при 100 KB @ {red['rate']:,} msg/s отправил все {red['sent']:,} "
+                    f"сообщений без ошибок; RabbitMQ сгенерировал {rmq['errs']:,} ошибок.")
+        return (f"Оба брокера справились без ошибок: RabbitMQ {rmq['tput']:.0f} msg/s, "
+                f"Redis {red['tput']:.0f} msg/s. "
+                f"Важно: Redis достиг этого результата за счёт ограничения размера очереди "
+                f"(~300 MB stream maxlen) — при перегрузке старые сообщения вытесняются автоматически. "
+                f"RabbitMQ буферизирует сообщения без принудительного вытеснения.")
+
+    large_winner_text = large_msg_winner(rmq_100k, red_100k)
+    cell_rmq_100k = fmt_100k(rmq_100k)
+    cell_red_100k = fmt_100k(red_100k, note=" ⚠️ stream ограничен ~300 MB" if (red_100k and red_100k["errs"] == 0) else "")
+
     report = f"""# Отчёт: Сравнение RabbitMQ vs Redis как брокеров сообщений
 
 **Дата:** {ts}
@@ -213,7 +244,7 @@ Redis Streams упирается в **~7 500 msg/s** при 128B payload — con
 | Latency (avg, малый rate) | 0.66 ms | **0.30 ms** |
 | Latency (avg, высокий rate) | 1.5 ms | **0.30 ms** |
 | Стабильность latency | деградирует | **стабильна** |
-| 100 KB @ 500 msg/s | **500 msg/s, 0 ошибок** | 156 msg/s, 10 332 ошибки |
+| 100 KB @ 500 msg/s | {cell_rmq_100k} | {cell_red_100k} |
 | Протокол | AMQP (накладные расходы) | RESP (бинарный, лёгкий) |
 | Модель доставки | ACK/NACK, DLX, routing | Consumer Groups, XACK |
 
@@ -221,9 +252,7 @@ Redis Streams упирается в **~7 500 msg/s** при 128B payload — con
 RabbitMQ — ~10 000 msg/s против ~7 500 msg/s у Redis в данной конфигурации.
 
 **Какой брокер лучше переносит рост размера сообщения:**
-RabbitMQ — при 100 KB @ 500 msg/s отправил все 15 000 сообщений без ошибок;
-Redis сгенерировал 10 332 ошибки и достиг лишь 156 msg/s (ограничение
-redis-py при работе с большими бинарными данными через Streams).
+{large_winner_text}
 
 **Когда single-instance начинает деградировать:**
 - RabbitMQ: при target > 10 000 msg/s throughput не растёт, latency удваивается.
