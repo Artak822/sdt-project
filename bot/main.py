@@ -9,7 +9,10 @@ from aiogram.fsm.storage.memory import MemoryStorage
 
 from bot.config import settings
 from bot.handlers import register_all_handlers
+from bot.services.match_api import MatchAPIClient
+from bot.services.profile_api import ProfileAPIClient
 from bot.services.publisher import connect_rabbitmq, close_rabbitmq
+from bot.services.redis_cache import get_client as get_redis_client, close_client as close_redis
 from bot.services.user_api import UserAPIClient
 
 logging.basicConfig(
@@ -27,21 +30,20 @@ async def main() -> None:
     dp = Dispatcher(storage=MemoryStorage())
     register_all_handlers(dp)
 
-    # HTTP-сессия для user_service
     http_session = aiohttp.ClientSession()
-    user_api = UserAPIClient(settings.USER_SERVICE_URL, http_session)
+    dp["user_api"] = UserAPIClient(settings.USER_SERVICE_URL, http_session)
+    dp["profile_api"] = ProfileAPIClient(settings.USER_SERVICE_URL, http_session)
+    dp["match_api"] = MatchAPIClient(settings.MATCH_SERVICE_URL, http_session)
 
-    # Прокидываем зависимости через workflow_data
-    dp["user_api"] = user_api
-
-    # Подключение к RabbitMQ
     await connect_rabbitmq()
+    await get_redis_client()
 
     logger.info("Bot started")
     try:
         await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
     finally:
         await close_rabbitmq()
+        await close_redis()
         await http_session.close()
         await bot.session.close()
         logger.info("Bot stopped")

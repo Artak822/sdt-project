@@ -50,3 +50,47 @@ async def publish_user_register(user_id: int, username: Optional[str]) -> None:
     }
     await _publish("user.register", payload)
     logger.info("Published user.register for user_id=%d", user_id)
+
+
+async def publish_profile_complete(
+    profile_id: str,
+    user_id: int,
+    name: str,
+    age: int,
+    gender: str,
+    bio: Optional[str],
+    city: Optional[str],
+    looking_for: str,
+    photo_id: Optional[str],
+) -> None:
+    payload = {
+        "event": "user.profile.complete",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "data": {
+            "profile_id": profile_id,
+            "user_id": user_id,
+            "name": name,
+            "age": age,
+            "gender": gender,
+            "bio": bio,
+            "city": city,
+            "looking_for": looking_for,
+            "photo_id": photo_id,
+        },
+    }
+    await _publish("user.profile.complete", payload)
+    logger.info("Published user.profile.complete for user_id=%d", user_id)
+
+
+async def publish_user_like(from_user_id: int, to_user_id: int, to_profile_id: str) -> None:
+    payload = {
+        "event": "user.like",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "data": {
+            "from_user_id": from_user_id,
+            "to_user_id": to_user_id,
+            "to_profile_id": to_profile_id,
+        },
+    }
+    await _publish("user.like", payload)
+    logger.info("Published user.like from_user_id=%d to_user_id=%d", from_user_id, to_user_id)
