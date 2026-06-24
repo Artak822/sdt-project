@@ -1,0 +1,16 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: user_service
+    static_configs:
+      - targets: ["user_service:8000"]
+
+  - job_name: match_service
+    static_configs:
+      - targets: ["match_service:8002"]
+
+  - job_name: rating_service
+    static_configs:
+      - targets: ["rating_service:8001"]

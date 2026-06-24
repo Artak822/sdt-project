@@ -1,8 +1,8 @@
 import logging
 
-from aiogram import Router, F
+from aiogram import Router, F, Bot
 from aiogram.fsm.context import FSMContext
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, URLInputFile
 
 from bot.fsm.states import RegistrationStates
 from bot.keyboards.inline import edit_profile_button
@@ -13,6 +13,7 @@ from bot.keyboards.reply import (
 from bot.services.profile_api import ProfileAPIClient
 from bot.services.publisher import publish_profile_complete
 from bot.services.redis_cache import invalidate_profile_cache
+from bot.services.s3_client import delete_photo, extract_key_from_url, upload_photo
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -38,8 +39,10 @@ async def _show_own_profile(target: Message, profile: dict) -> None:
         f"О себе: {profile.get('bio') or '—'}"
     )
     keyboard = edit_profile_button()
-    if profile.get("photo_id"):
-        await target.answer_photo(profile["photo_id"], caption=text, reply_markup=keyboard)
+    photo_id = profile.get("photo_id")
+    if photo_id:
+        photo = URLInputFile(photo_id) if photo_id.startswith("http") else photo_id
+        await target.answer_photo(photo, caption=text, reply_markup=keyboard)
     else:
         await target.answer(text, reply_markup=keyboard)
 
@@ -246,8 +249,21 @@ async def process_bio(message: Message, state: FSMContext) -> None:
 
 
 @router.message(RegistrationStates.waiting_for_photo, F.photo)
-async def process_photo(message: Message, state: FSMContext, profile_api: ProfileAPIClient) -> None:
-    await state.update_data(photo_id=message.photo[-1].file_id)
+async def process_photo(message: Message, state: FSMContext, profile_api: ProfileAPIClient, bot: Bot) -> None:
+    file_id = message.photo[-1].file_id
+    photo_url: str | None = None
+    try:
+        file = await bot.get_file(file_id)
+        buf = await bot.download_file(file.file_path)
+        photo_url = await upload_photo(
+            buf.read(),
+            message.from_user.id,
+            filename=file.file_path,
+        )
+    except Exception as exc:
+        logger.warning("Failed to upload photo to S3, falling back to file_id: %s", exc)
+
+    await state.update_data(photo_id=photo_url or file_id)
     await _finish_profile(message, state, profile_api)
 
 
@@ -275,7 +291,7 @@ async def process_photo_skip(message: Message, state: FSMContext, profile_api: P
 async def _finish_profile(message: Message, state: FSMContext, profile_api: ProfileAPIClient) -> None:
     data = await state.get_data()
     is_editing = data.pop("is_editing", False)
-    data.pop("old_profile", None)
+    old_profile = data.pop("old_profile", None) or {}
     await state.clear()
 
     kwargs = {
@@ -299,6 +315,17 @@ async def _finish_profile(message: Message, state: FSMContext, profile_api: Prof
     if not profile:
         await message.answer("Произошла ошибка. Попробуй позже.")
         return
+
+    old_photo = old_profile.get("photo_id")
+    new_photo = profile.get("photo_id")
+    if (
+        is_editing
+        and old_photo
+        and new_photo
+        and old_photo != new_photo
+        and extract_key_from_url(old_photo)
+    ):
+        await delete_photo(old_photo)
 
     if not is_editing:
         try:

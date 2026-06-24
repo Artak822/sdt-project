@@ -2,7 +2,7 @@ import logging
 from typing import Optional
 
 from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, URLInputFile
 
 from bot.keyboards.inline import like_dislike_keyboard
 from bot.keyboards.reply import main_menu_keyboard
@@ -64,7 +64,9 @@ async def _send_profile(target: Message, profile: dict) -> None:
         text += f"\n{profile['bio']}"
 
     if profile.get("photo_id"):
-        await target.answer_photo(profile["photo_id"], caption=text, reply_markup=keyboard)
+        photo_id = profile["photo_id"]
+        photo = URLInputFile(photo_id) if photo_id.startswith("http") else photo_id
+        await target.answer_photo(photo, caption=text, reply_markup=keyboard)
     else:
         await target.answer(text, reply_markup=keyboard)
 

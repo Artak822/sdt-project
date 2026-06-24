@@ -11,5 +11,13 @@ class Settings(BaseSettings):
     MATCH_SERVICE_URL: str = "http://match_service:8002"
     LOG_LEVEL: str = "INFO"
 
+    S3_ENDPOINT_URL: str = "http://minio:9000"
+    S3_ACCESS_KEY: str = "minioadmin"
+    S3_SECRET_KEY: str = "minioadmin"
+    S3_BUCKET: str = "dating-photos"
+    S3_REGION: str = "us-east-1"
+    S3_PUBLIC_BASE_URL: str | None = None
+    S3_KEY_PREFIX: str = "photos"
+
 
 settings = Settings()

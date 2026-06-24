@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from typing import AsyncGenerator, List
 
 from fastapi import FastAPI, Depends, HTTPException, status
+from prometheus_fastapi_instrumentator import Instrumentator
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -31,6 +32,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
 
 
 app = FastAPI(title="Match Service", lifespan=lifespan)
+Instrumentator().instrument(app).expose(app)
 
 
 @app.get("/health")

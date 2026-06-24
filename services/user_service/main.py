@@ -5,6 +5,7 @@ from typing import AsyncGenerator, List
 from uuid import UUID
 
 from fastapi import FastAPI, Depends, HTTPException, Query, status
+from prometheus_fastapi_instrumentator import Instrumentator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.user_service.config import settings
@@ -39,6 +40,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
 
 
 app = FastAPI(title="User Service", lifespan=lifespan)
+Instrumentator().instrument(app).expose(app)
 
 
 @app.get("/health")

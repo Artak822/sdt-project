@@ -4,3 +4,4 @@ pydantic-settings==2.2.1
 python-dotenv==1.0.1
 aiohttp==3.9.5
 redis==5.0.3
+aioboto3==13.1.1
